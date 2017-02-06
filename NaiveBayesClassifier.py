@@ -1,4 +1,5 @@
 import csv
+import math
 
 class NaiveBayesClassifier:
     
@@ -22,6 +23,9 @@ class NaiveBayesClassifier:
 
         #Maintains, for each word X category - number of words in category
         self.all_words_by_category = dict()
+
+        #Construct a Document Index - tells which words are in document <docId, [word1, word2]>
+        self.document_index = dict()
 
     def read_categories(self):
         self.categories = dict()
@@ -55,6 +59,7 @@ class NaiveBayesClassifier:
                 category_id = self.docs_labels[row[0]]
                 self.update_word_count(category_id, int(row[2]))
                 self.update_word_by_category(row[1], category_id, int(row[2]))
+                self.update_document_index(row[0], row[1]) 
 
         #for key, value in self.num_words.iteritems():
         #    print "CategoryID:" + key + " Words" + str(value)
@@ -67,6 +72,12 @@ class NaiveBayesClassifier:
             for row in reader:
                 c+=1
             self.vocabular_size = c
+
+    #Update doc words
+    def update_document_index(self, doc_id, word_id):
+        words = self.document_index.get(doc_id, set())
+        words.add(word_id)
+        self.document_index[doc_id] = words
 
     # Increment the number of documents for category_id
     def update_category_count(self, category_id):
@@ -125,11 +136,56 @@ class NaiveBayesClassifier:
         for x in xrange(1,10):
             for y in xrange(1,10):
                 print "MLE {} BE {}".format(self.mle(str(x),str(y)), self.be(str(x),str(y)))
+
+    def classify(self, doc_id, estimator):
+        max_j = float('-inf')
+        classification = None
+        for category in self.categories_count.keys():
+            prior = math.log(self.priors[category])
+            p = prior
+            for w in self.document_index[doc_id]:
+                p+= math.log(estimator(w, category))
+            if(p>max_j):
+                max_j = p
+                classification = category
+        return classification
+
+    def create_confusion_matrix(self):
+        c = len(self.categories_count.keys())
+        return [[0 for x in range(c)] for y in range(c)]
+
+    def print_confusion_matrix(self, m):
+        c = len(self.categories_count.keys())
+        for i in range(c):
+            for j in range(c):
+                print " {} ".format(m[i][j]), 
+            print ''
+
+
+    def compute_accuracy_training_data(self):
+        confusion_matrix = self.create_confusion_matrix()
+        total_docs = len(self.docs_labels.keys())
+        correct = 0
+        i = 0
+        for doc_id, category_id in self.docs_labels.iteritems():
+            classification_id = self.classify(doc_id, self.be)
+            if(classification_id==category_id):
+                correct+=1
+            confusion_matrix[int(category_id)-1][int(classification_id)-1] +=1
+            i+=1
+            if(i>1000):
+                break
+        accuracy = float(correct)/float(total_docs)
+        self.print_confusion_matrix(confusion_matrix)
+        print " Accuracy is " + str(accuracy)
+
+
+
+
 n = NaiveBayesClassifier()
 n.read_categories()
 n.read_training_data()
 n.estimate_priors()
 n.calculate_total_words()
 n.calculate_vocabulary_count()
-n.print_priors()
-n.print_estimates()
+n.compute_accuracy_training_data()
