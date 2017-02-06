@@ -163,6 +163,7 @@ class NaiveBayesClassifier:
 
 
     def compute_accuracy_training_data(self):
+        category_classification = dict()
         confusion_matrix = self.create_confusion_matrix()
         total_docs = len(self.docs_labels.keys())
         correct = 0
@@ -171,13 +172,28 @@ class NaiveBayesClassifier:
             classification_id = self.classify(doc_id, self.be)
             if(classification_id==category_id):
                 correct+=1
+                c_frequency = category_classification.get(category_id, 0)
+                c_frequency+=1
+                category_classification[category_id] = c_frequency
+
             confusion_matrix[int(category_id)-1][int(classification_id)-1] +=1
-            i+=1
-            if(i>1000):
-                break
+            # i+=1
+            # if(i>1000):
+            #     break
         accuracy = float(correct)/float(total_docs)
+
+        print "Overall Accuracy = " + str(accuracy)
+
+        #Compute category accuracy
+        categories = sorted(self.categories_count.keys(), cmp = self.category_comparator)
+        for category_id in categories:
+            classifications_made = category_classification[category_id]
+            total = self.categories_count[category_id]
+            acc = float(classifications_made)/float(total)
+            print "Group {}: {}".format(category_id, acc)
+
+        print "Confusion Matrix:"
         self.print_confusion_matrix(confusion_matrix)
-        print " Accuracy is " + str(accuracy)
 
 
 
