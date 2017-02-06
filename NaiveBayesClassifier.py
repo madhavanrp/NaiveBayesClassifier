@@ -103,7 +103,7 @@ class NaiveBayesClassifier:
     def be(self, word_id, category_id):
         n_k = self.n_k(word_id, category_id)
         n = self.num_words[category_id]
-        return float(n_k)/ float(n+self.vocabular_size)
+        return float(n_k+1)/ float(n+self.vocabular_size)
 
     # Print the priors
     def print_priors(self):
@@ -120,6 +120,11 @@ class NaiveBayesClassifier:
         else: 
             return 0
 
+    # Print some MLE, BE for report
+    def print_estimates(self):
+        for x in xrange(1,10):
+            for y in xrange(1,10):
+                print "MLE {} BE {}".format(self.mle(str(x),str(y)), self.be(str(x),str(y)))
 n = NaiveBayesClassifier()
 n.read_categories()
 n.read_training_data()
@@ -127,3 +132,4 @@ n.estimate_priors()
 n.calculate_total_words()
 n.calculate_vocabulary_count()
 n.print_priors()
+n.print_estimates()
