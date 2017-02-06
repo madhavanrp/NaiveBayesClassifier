@@ -8,6 +8,8 @@ class NaiveBayesClassifier:
         self.train_data_file = "20newsgroups/train_data.csv"
         self.train_label_file = "20newsgroups/train_label.csv"
         self.vocabulary_file = "20newsgroups/vocabulary.txt"
+        self.test_data_file = "20newsgroups/test_data.csv"
+        self.test_label_file = "20newsgroups/test_label.csv"
 
         #Initialize prior counts - (<categoryID>, count)
         self.categories_count = dict()
@@ -27,6 +29,8 @@ class NaiveBayesClassifier:
         #Construct a Document Index - tells which words are in document <docId, [word1, word2]>
         self.document_index = dict()
 
+        #Read the test data into file
+
     def read_categories(self):
         self.categories = dict()
         with open(self.categories_file, 'rb') as categories:
@@ -38,6 +42,27 @@ class NaiveBayesClassifier:
         with open(self.train_data_file, 'rb') as train_data:
             train_data_reader = csv.reader(train_data, delimiter = ",")
 
+    def read_test_data(self):
+
+        test_document_index = dict()
+        with open(self.test_data_file, 'rb') as test_data:
+            test_data_reader = csv.reader(test_data, delimiter = ",")
+            for row in test_data_reader:
+                word_id = row[1]
+                doc_id = row[0]
+                words = test_document_index.get(doc_id, set())
+                words.add(word_id)
+                test_document_index[doc_id] = words
+
+        test_labels = dict()
+        with open(self.test_label_file, 'rb') as test_label:
+            labelled_docs = csv.reader(test_label)
+            doc_number = 0
+            for row in labelled_docs:
+                test_labels[str(doc_number+1)] = row[0]
+                doc_number+=1
+
+        return test_document_index, test_labels
 
     def estimate_priors(self):
         total_docs = 0
@@ -100,7 +125,7 @@ class NaiveBayesClassifier:
         self.all_words_by_category[word_id] = category_frequency
 
     def n_k(self, word_id, category_id):
-        word_frequencies = self.all_words_by_category[word_id]
+        word_frequencies = self.all_words_by_category.get(word_id, dict())
         f = word_frequencies.get(category_id, 0)
         return f
 
@@ -137,14 +162,16 @@ class NaiveBayesClassifier:
             for y in xrange(1,10):
                 print "MLE {} BE {}".format(self.mle(str(x),str(y)), self.be(str(x),str(y)))
 
-    def classify(self, doc_id, estimator):
+    def classify(self, document_index, doc_id,estimator):
         max_j = float('-inf')
         classification = None
         for category in self.categories_count.keys():
             prior = math.log(self.priors[category])
             p = prior
-            for w in self.document_index[doc_id]:
-                p+= math.log(estimator(w, category))
+            for w in document_index[doc_id]:
+                e = estimator(w, category)
+                if(e!=0):
+                    p+= math.log(e)
             if(p>max_j):
                 max_j = p
                 classification = category
@@ -162,14 +189,15 @@ class NaiveBayesClassifier:
             print ''
 
 
-    def compute_accuracy_training_data(self):
+    def compute_accuracy_data(self, document_index, labelled_data, estimator):
         category_classification = dict()
         confusion_matrix = self.create_confusion_matrix()
-        total_docs = len(self.docs_labels.keys())
+        total_docs = len(labelled_data.keys())
+        print " yo total docs is  " + str(total_docs)
         correct = 0
         i = 0
-        for doc_id, category_id in self.docs_labels.iteritems():
-            classification_id = self.classify(doc_id, self.be)
+        for doc_id, category_id in labelled_data.iteritems():
+            classification_id = self.classify(document_index, doc_id, estimator)
             if(classification_id==category_id):
                 correct+=1
                 c_frequency = category_classification.get(category_id, 0)
@@ -180,6 +208,7 @@ class NaiveBayesClassifier:
             # i+=1
             # if(i>1000):
             #     break
+        print correct
         accuracy = float(correct)/float(total_docs)
 
         print "Overall Accuracy = " + str(accuracy)
@@ -195,7 +224,16 @@ class NaiveBayesClassifier:
         print "Confusion Matrix:"
         self.print_confusion_matrix(confusion_matrix)
 
-
+    def compute_accuracy(self):
+        # self.print_priors()
+        # self.compute_accuracy_data(self.document_index, self.docs_labels, self.be)
+        
+        #Do it on test data now
+        test_document_index, test_labels = self.read_test_data()
+        print "Test Data with MLE"
+        self.compute_accuracy_data(test_document_index, test_labels, self.mle)
+        # print "Test Data with BE"
+        # self.compute_accuracy_data(test_document_index, test_labels, self.be)
 
 
 n = NaiveBayesClassifier()
@@ -204,4 +242,4 @@ n.read_training_data()
 n.estimate_priors()
 n.calculate_total_words()
 n.calculate_vocabulary_count()
-n.compute_accuracy_training_data()
+n.compute_accuracy()
